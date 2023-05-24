@@ -946,35 +946,47 @@ ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
  *       -2 for getaddrinfo error
  *       -1 with errno set for other errors.
  */
-/* $begin open_clientfd */
+/* 주어진 호스트명과 포트에 대한 클라이언트 소켓을 생성하여 서버에 연결하는 함수이다. */
 int open_clientfd(char *hostname, char *port) {
-    int clientfd, rc;
-    struct addrinfo hints, *listp, *p;
+    int clientfd, rc; // 클라이언트 파일 디스크럽터와 반환 코드를 위한 변수를 선언한다.
+    struct addrinfo hints, *listp, *p; // 주소 힌트, 주소 목록 및 현재 주소 포인터를 위한 변수를 선언한다.
 
-    /* Get a list of potential server addresses */
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_socktype = SOCK_STREAM;  /* Open a connection */
-    hints.ai_flags = AI_NUMERICSERV;  /* ... using a numeric port arg. */
-    hints.ai_flags |= AI_ADDRCONFIG;  /* Recommended for connections */
+    /* 서버 주소목록을 가져온다. */
+    memset(&hints, 0, sizeof(struct addrinfo)); //구조체를 초기화한다.
+    hints.ai_socktype = SOCK_STREAM;  // 소켓 타입을 sock_stream(tcp 연결)으로 설정한다.
+    hints.ai_flags = AI_NUMERICSERV;  // 숫자형 포트 인자를 사용하여 연결합니다.
+    hints.ai_flags |= AI_ADDRCONFIG;  // 연결에 권장되는 ai_addrconfig 플래그를 설정한다.
     if ((rc = getaddrinfo(hostname, port, &hints, &listp)) != 0) {
         fprintf(stderr, "getaddrinfo failed (%s:%s): %s\n", hostname, port, gai_strerror(rc));
         return -2;
     }
   
-    /* Walk the list for one that we can successfully connect to */
+    /* 성공적으로 연결할 수 있는 주소를 찾는다. */
     for (p = listp; p; p = p->ai_next) {
-        /* Create a socket descriptor */
+        /* 소켓 디스크립터를 생성한다. */
         if ((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) 
-            continue; /* Socket failed, try the next */
+            continue; // 소켓을 생성하여 소켓 디스크립터를 할당한다. 소켓 생성에 실패하면다음 주소를 시도한다.
 
-        /* Connect to the server */
+        /*서버에 연결한다.*/
         if (connect(clientfd, p->ai_addr, p->ai_addrlen) != -1) 
-            break; /* Success */
-        if (close(clientfd) < 0) { /* Connect failed, try another */  //line:netp:openclientfd:closefd
+            break; // 서버에 성공적으로 연결되면 반복문을 종료한다.
+        if (close(clientfd) < 0) { 
             fprintf(stderr, "open_clientfd: close failed: %s\n", strerror(errno));
             return -1;
         } 
     } 
+
+/*getaddrinfo()함수를 호출하여 호스트명과 포트에 대한 서버 주소 목록을 가져온다 hints 구조체를 사용하여 소켓 유형을 SOCK_STREAM으로 설정하고
+숫자형 포트 인자를 사용하여 연결하도록 지정한다. 반환된 주소 목록은 listp에 저장된다.*/
+/*주소 목록을 확인하면서 소켓 디스크립터를 생성하고, 해당 주소에 서버를 연결한다.
+socket함수를 호출하여 소켓 디스크립터를 생성한다. 소켓 디스크립터는 clientfd변수에 저장된다. 생성에 실패한 경우, 다음 주소를 시도한다.
+connect()함수를 사용하여 클라리언트 소켓을 서버에 연결한다. 연결에 성공하면 반복문을 종료한다. 연결에 실패한 경우, 소켓을 닫고 다음 주소를 시도한다.*/
+/*함수가 성공적으로 실행되면 연결된 클라이언트 소켓 파일 디스크립터(clientfd)를 반환한다. 연결에 실패한 경우,오류를 출력하고 -1을 반환한다.*/
+
+/*위 함수의 역할을 호스트 명과 포트를 사용하여 서버에 연결하는 클라이언트 소켓 파일 디스크립터를 반환하는 역할을 수행한다.*/
+
+
+
 
     /* Clean up */
     freeaddrinfo(listp);
@@ -999,11 +1011,11 @@ int open_listenfd(char *port)
     struct addrinfo hints, *listp, *p;
     int listenfd, rc, optval=1;
 
-    /* Get a list of potential server addresses */
+    /* 서버 주소목록을 가져온다. */
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_socktype = SOCK_STREAM;             /* Accept connections */
-    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* ... on any IP address */
-    hints.ai_flags |= AI_NUMERICSERV;            /* ... using port number */
+    hints.ai_socktype = SOCK_STREAM;             /* 연결을 수락한다. */
+    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* IP주소에 관계없이 수락한다. */
+    hints.ai_flags |= AI_NUMERICSERV;            /* 포트번호를 사용한다. */
     if ((rc = getaddrinfo(NULL, port, &hints, &listp)) != 0) {
         fprintf(stderr, "getaddrinfo failed (port %s): %s\n", port, gai_strerror(rc));
         return -2;
@@ -1028,7 +1040,15 @@ int open_listenfd(char *port)
         }
     }
 
-
+/*getaddrinfo()함수를 호출하여 주어진 포트에 대한 서버 주소 목록을 가져온다. Null은 현재 호스트의 ip주소를 사용하도록 지정한다.
+반환된 주소 목록은 listp에 저장된다.*/
+/*주소 목록을 확인하면서 소켓 디스크립터를 생성하고, 해당 주소에 바인딩(포트 정보랑 ip주소를 연결)하는 작업을 수행한다.*/
+/*socket()함수를 호출하여 소켓 디스크립터를 생성한다. 소켓 디스크립터는listenfd 변수에 저장된다. 생성에 실패한 경우, 다음 주소를 시도한다.*/
+/*setsockopt()함수를 호출하여 SO_REUSEADDR옵션을 설정함으로써 address already in use 오류를 제거한다. 이를 통해 이미 사용 중인 주소를 재사용할 수 있다.*/
+/*bind()함수를 호출하여 소켓 디스크립터를 주어진 주소에 바인딩한다. 바인딩에 성공하면 반복문을 종료하고, 바인딩에 실패한 경우 다음 주소를 시도한다. 바인딩에 실패하면 해당 소켓을 닫는다.*/
+/*주소 목록을 정리하고 메모리를 해제한다.*/
+/*만들어진 소켓을 수신 소켓으로 설정하여 연결 요청을 수락할 준비를 한다.*/
+/*리스닝 소켓 파일 디스크립터를 반환한다.*/
     /* Clean up */
     freeaddrinfo(listp);
     if (!p) /* No address worked */
